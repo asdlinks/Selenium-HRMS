@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    FULL SMOKE SUITE - the default target.
+
+    Ordered deliberately: authentication first (nothing else can pass if sign-in
+    is broken), then navigation, then RBAC, then the module workflows, and the
+    inter-module reflection checks last because they are the slowest and the
+    most dependent on everything before them having worked.
+
+    Run with:  mvn clean test
+-->
+<suite name="MyWe HRMS - Full Smoke Suite" verbose="1" parallel="false">
+
+    <listeners>
+        <listener class-name="com.mywehr.listeners.TestListener"/>
+        <listener class-name="com.mywehr.listeners.RetryListener"/>
+    </listeners>
+
+    <test name="01 - Authentication and Session" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.auth.AuthenticationSmokeTest"/>
+        </classes>
+    </test>
+
+    <test name="02 - Module Load and Navigation" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.navigation.ModuleLoadSmokeTest"/>
+        </classes>
+    </test>
+
+    <test name="03 - Role Based Access Control" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.rbac.RoleBasedAccessTest"/>
+        </classes>
+    </test>
+
+    <test name="04 - Organization Configuration" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.configuration.OrganizationConfigurationTest"/>
+        </classes>
+    </test>
+
+    <test name="05 - Employee Management" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.employee.EmployeeManagementTest"/>
+        </classes>
+    </test>
+
+    <test name="06 - Leave Workflow" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.leave.LeaveWorkflowTest"/>
+        </classes>
+    </test>
+
+    <test name="07 - Inter-Module Data Reflection" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.intermodule.CrossModuleReflectionTest"/>
+        </classes>
+    </test>
+
+</suite>

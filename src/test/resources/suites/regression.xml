@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    REGRESSION SUITE - everything, in parallel by class.
+
+    EXPERIMENTAL - read this before raising thread-count.
+
+    The framework itself is parallel-ready: BaseTest gives every test method its
+    own WebDriver in a ThreadLocal and its own login, and no state is shared in
+    code. The ACCOUNTS are the bottleneck. The application allows only one
+    active session per user, so two concurrent tests signing in as the same
+    persona log each other out - the loser fails somewhere unrelated, on a
+    login page.
+
+    thread-count therefore ships at 1 - serial, and correct. Raising it needs
+    one account per persona per thread, selected by thread index in Persona.
+    Two personas alone are not enough: nothing here pins a persona to a thread.
+
+    Counter assertions (headcount, department count, pending approvals) read
+    live tenant-wide figures that a concurrent test can be mutating, so those
+    want their own tenant rather than merely their own account.
+
+    Run with:  mvn clean test -Pregression
+-->
+<suite name="MyWe HRMS - Full Regression Suite" verbose="1"
+       parallel="classes" thread-count="1" data-provider-thread-count="1">
+
+    <listeners>
+        <listener class-name="com.mywehr.listeners.TestListener"/>
+        <listener class-name="com.mywehr.listeners.RetryListener"/>
+    </listeners>
+
+    <test name="Regression - All Modules">
+        <packages>
+            <package name="com.mywehr.tests.*"/>
+        </packages>
+    </test>
+
+</suite>

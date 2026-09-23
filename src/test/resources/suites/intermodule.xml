@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    INTER-MODULE SUITE.
+
+    The cross-cutting data-reflection checks - a change made in one module must
+    surface in the others. Slowest suite, highest value.
+
+    Run with:  mvn clean test -Pintermodule
+-->
+<suite name="MyWe HRMS - Inter-Module Reflection Suite" verbose="1" parallel="false">
+
+    <listeners>
+        <listener class-name="com.mywehr.listeners.TestListener"/>
+        <listener class-name="com.mywehr.listeners.RetryListener"/>
+    </listeners>
+
+    <test name="Inter-Module Data Reflection" preserve-order="true">
+        <groups>
+            <run>
+                <include name="intermodule"/>
+            </run>
+        </groups>
+        <packages>
+            <package name="com.mywehr.tests.*"/>
+        </packages>
+    </test>
+
+</suite>

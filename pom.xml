@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.mywehr</groupId>
+    <artifactId>mywehr-hrms-automation</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>MyWe HRMS - Selenium Automation Framework</name>
+    <description>
+        Hybrid (Page Object + Data Driven) Selenium/TestNG framework covering the
+        MyWe HRMS web application: authentication, RBAC across personas,
+        module smoke coverage and inter-module data-reflection flows.
+    </description>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- ==== dependency versions ==== -->
+        <selenium.version>4.44.0</selenium.version>
+        <testng.version>7.10.0</testng.version>
+        <extentreports.version>5.0.9</extentreports.version>
+        <jackson.version>2.18.2</jackson.version>
+        <commons.io.version>2.16.1</commons.io.version>
+        <surefire.version>3.5.2</surefire.version>
+
+        <!-- ==== runtime knobs (override from CLI: -Dbrowser=firefox) ==== -->
+        <suite.file>src/test/resources/suites/smoke.xml</suite.file>
+        <browser>chrome</browser>
+        <headless>false</headless>
+        <env>test</env>
+        <thread.count>1</thread.count>
+        <retry.count>1</retry.count>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.aventstack</groupId>
+            <artifactId>extentreports</artifactId>
+            <version>${extentreports.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons.io.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+                <configuration>
+                    <suiteXmlFiles>
+                        <suiteXmlFile>${suite.file}</suiteXmlFile>
+                    </suiteXmlFiles>
+                    <!-- never let a red suite silently pass CI -->
+                    <testFailureIgnore>false</testFailureIgnore>
+                    <systemPropertyVariables>
+                        <browser>${browser}</browser>
+                        <headless>${headless}</headless>
+                        <env>${env}</env>
+                        <retry.count>${retry.count}</retry.count>
+                    </systemPropertyVariables>
+                    <properties>
+                        <property>
+                            <name>dataproviderthreadcount</name>
+                            <value>${thread.count}</value>
+                        </property>
+                    </properties>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- ============ SUITE PROFILES ============ -->
+        <profile>
+            <id>smoke</id>
+            <activation><activeByDefault>true</activeByDefault></activation>
+            <properties>
+                <suite.file>src/test/resources/suites/smoke.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>rbac</id>
+            <properties>
+                <suite.file>src/test/resources/suites/rbac.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>intermodule</id>
+            <properties>
+                <suite.file>src/test/resources/suites/intermodule.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>regression</id>
+            <properties>
+                <suite.file>src/test/resources/suites/regression.xml</suite.file>
+                <thread.count>1</thread.count>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>critical-path</id>
+            <properties>
+                <suite.file>src/test/resources/suites/critical-path.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>auth</id>
+            <properties>
+                <suite.file>src/test/resources/suites/auth.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>navigation</id>
+            <properties>
+                <suite.file>src/test/resources/suites/navigation.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>configuration</id>
+            <properties>
+                <suite.file>src/test/resources/suites/configuration.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>employee</id>
+            <properties>
+                <suite.file>src/test/resources/suites/employee.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>leave</id>
+            <properties>
+                <suite.file>src/test/resources/suites/leave.xml</suite.file>
+            </properties>
+        </profile>
+
+        <!-- ============ EXECUTION MODE PROFILES ============ -->
+        <profile>
+            <id>ci</id>
+            <properties>
+                <headless>true</headless>
+                <retry.count>2</retry.count>
+                <thread.count>1</thread.count>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>grid</id>
+            <properties>
+                <browser>remote-chrome</browser>
+                <headless>true</headless>
+            </properties>
+        </profile>
+    </profiles>
+
+</project>

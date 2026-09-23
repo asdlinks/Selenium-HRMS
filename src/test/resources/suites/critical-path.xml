@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    CRITICAL PATH SUITE - the build gate.
+
+    Only tests tagged "critical": sign-in, page load, the access matrix and the
+    inter-module consistency checks. Fast enough to run on every commit.
+
+    Run with:  mvn clean test -Dsuite.file=src/test/resources/suites/critical-path.xml
+-->
+<suite name="MyWe HRMS - Critical Path" verbose="1" parallel="false">
+
+    <listeners>
+        <listener class-name="com.mywehr.listeners.TestListener"/>
+        <listener class-name="com.mywehr.listeners.RetryListener"/>
+    </listeners>
+
+    <test name="Critical Path" preserve-order="true">
+        <groups>
+            <run>
+                <include name="critical"/>
+            </run>
+        </groups>
+        <packages>
+            <package name="com.mywehr.tests.*"/>
+        </packages>
+    </test>
+
+</suite>
