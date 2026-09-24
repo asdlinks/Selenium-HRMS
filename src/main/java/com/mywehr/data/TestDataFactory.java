@@ -87,15 +87,19 @@ public final class TestDataFactory {
      * different app behaviour and would make balance assertions ambiguous.
      */
     /**
-     * A single-day leave on a random working day two weeks to six months out.
+     * A single-day leave on a random weekday one to eleven months out.
      *
-     * Randomised because the app refuses leave that overlaps an existing
-     * request: a fixed "three days from now" makes the second run of the day
-     * fail on data the first run left behind.
+     * Randomised because the app will not record leave that overlaps an
+     * existing request, and every run leaves one behind. A weekend draw is
+     * re-rolled rather than moved to Monday: moving it made Mondays three times
+     * as likely, and two runs did land on the same Monday.
      */
     public static LeaveRequestData singleDayLeave(String targetEmployee) {
-        LocalDate day = DateUtils.nextWorkingDay(
-                java.util.concurrent.ThreadLocalRandom.current().nextInt(14, 180));
+        var random = java.util.concurrent.ThreadLocalRandom.current();
+        LocalDate day;
+        do {
+            day = DateUtils.daysFromToday(random.nextInt(30, 330));
+        } while (day.getDayOfWeek().getValue() >= 6);
         return new LeaveRequestData()
                 .setScenario("Single day casual leave for " + targetEmployee)
                 .setTargetEmployee(targetEmployee)

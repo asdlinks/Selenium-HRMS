@@ -1,5 +1,6 @@
 package com.mywehr.pages.timeleave;
 
+import com.mywehr.config.ConfigManager;
 import com.mywehr.enums.AppModule;
 import com.mywehr.enums.LeaveStatus;
 import com.mywehr.enums.LeaveType;
@@ -183,13 +184,13 @@ public class LeavesPage extends BasePage {
                 + " or @role='button' or self::button][1]");
 
         ElementUtils.click(chip);
-        MuiUtils.waitForGrid();
+        waitForGridOrEmptyState();
 
         if (expectedRows >= 0 && !waitForGridTotal(expectedRows)) {
             Log.warn("The grid did not filter on the native click - "
                     + "replaying the full pointer sequence");
             ElementUtils.clickViaScript(chip);
-            MuiUtils.waitForGrid();
+            waitForGridOrEmptyState();
             waitForGridTotal(expectedRows);
         }
         return this;
@@ -198,7 +199,7 @@ public class LeavesPage extends BasePage {
     /** Polls the grid's pagination footer until it reports the expected total. */
     private boolean waitForGridTotal(int expectedTotal) {
         try {
-            WaitUtils.fluently(d -> MuiUtils.gridTotalFromPagination() == expectedTotal,
+            WaitUtils.fluently(d -> totalRequestCount() == expectedTotal,
                     java.time.Duration.ofSeconds(12),
                     "The grid never showed " + expectedTotal + " rows");
             return true;
@@ -218,14 +219,39 @@ public class LeavesPage extends BasePage {
     }
 
     public int visibleRowCount() {
-        MuiUtils.waitForGrid();
-        return MuiUtils.gridRowCount();
+        return waitForGridOrEmptyState() ? 0 : MuiUtils.gridRowCount();
     }
 
     /** Total across all pages, read from the pagination footer. */
     public int totalRequestCount() {
-        MuiUtils.waitForGrid();
-        return MuiUtils.gridTotalFromPagination();
+        return waitForGridOrEmptyState() ? 0 : MuiUtils.gridTotalFromPagination();
+    }
+
+    /** The message shown in place of the grid when a tab has no requests. */
+    private static final By EMPTY_STATE = By.xpath(
+            "//main//*[starts-with(normalize-space(text()),'No ')]"
+                    + "[contains(normalize-space(text()),'found')]");
+
+    /**
+     * Waits for the request list to render in either of its two forms.
+     *
+     * A tab with no requests renders a "No ... found" message instead of a
+     * data grid, so waiting for the grid alone times out on every empty tab -
+     * the Pending tab is usually empty on this tenant.
+     *
+     * @return true when the empty state is shown, false when the grid is
+     */
+    private boolean waitForGridOrEmptyState() {
+        // Returns a label rather than a Boolean: a wait treats Boolean.FALSE as
+        // "not yet", so "the grid is here, it is not empty" would never resolve.
+        String rendered = WaitUtils.fluently(d -> {
+            if (d.findElements(MuiUtils.DATA_GRID).stream().anyMatch(e -> e.isDisplayed())) {
+                return "grid";
+            }
+            return d.findElements(EMPTY_STATE).isEmpty() ? null : "empty";
+        }, ConfigManager.explicitWait(), "Neither the request grid nor its empty state rendered");
+        WaitUtils.waitForDataToSettle();
+        return "empty".equals(rendered);
     }
 
     public boolean hasRequestFor(String employeeName) {

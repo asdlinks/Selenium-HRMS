@@ -54,6 +54,7 @@ public abstract class BasePage {
         DriverManager.get().get(url);
         WaitUtils.waitForAppShell();
         WaitUtils.waitForDataToSettle();
+        MuiUtils.dismissCheckInReminderIfShown();
     }
 
     // ---------------------------------------------------------- page state

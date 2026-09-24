@@ -181,6 +181,40 @@ public final class MuiUtils {
                 + " or .//*[@aria-label=" + escaped + " or @title=" + escaped + "]]");
     }
 
+    // ------------------------------------------------ check-in reminder
+
+    /**
+     * Closes the "Hello, you haven't checked in yet today" reminder if shown.
+     *
+     * The app floats this card over every page on a persona's first sign-in
+     * of the day, so it appears in the first run each morning and never in a
+     * rerun later that day - a textbook source of "fails only sometimes". It
+     * swallows clicks aimed at whatever is underneath it. Only its close
+     * button is clicked: the card body itself navigates to Daily Check-In.
+     *
+     * @return true when a reminder was found and closed
+     */
+    public static boolean dismissCheckInReminderIfShown() {
+        Object closed = ((org.openqa.selenium.JavascriptExecutor) DriverManager.get()).executeScript(
+                """
+                const text = [...document.querySelectorAll('body *')]
+                    .find(e => e.children.length === 0
+                            && /checked in yet/i.test(e.textContent || ''));
+                if (!text) return false;
+                let card = text.parentElement;
+                while (card && !card.querySelector('button')) card = card.parentElement;
+                if (!card || card === document.body) return false;
+                card.querySelector('button').click();
+                return true;
+                """);
+        if (Boolean.TRUE.equals(closed)) {
+            Log.warn("Closed the daily check-in reminder that was covering the page");
+            WaitUtils.sleepQuietly(Duration.ofMillis(400));
+            return true;
+        }
+        return false;
+    }
+
     // ------------------------------------------------------ select handling
 
     /**

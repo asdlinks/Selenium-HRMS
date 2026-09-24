@@ -124,14 +124,21 @@ public class LeaveWorkflowTest extends BaseTest {
 
         // Leave an Administrator records for someone else is an HR decision
         // already taken, so the app stores it as Approved rather than queueing it.
-        step("Verifying the request was saved directly as Approved");
+        //
+        // The count rising is HARD because it is the only proof a NEW record
+        // was saved: a matching row can already exist from an earlier run on
+        // the same date, and the app does not record an overlapping request.
+        step("Verifying a new request was saved directly as Approved");
+        assertTrue(adminLeaves.waitForTabCount(LeaveStatus.APPROVED, approvedBefore + 1),
+                "The Approved tab reported " + adminLeaves.tabCount(LeaveStatus.APPROVED)
+                        + " after recording, expected " + (approvedBefore + 1)
+                        + " - no new request was saved. If an earlier run already recorded "
+                        + TARGET_EMPLOYEE + " on " + dayMonth + " " + year
+                        + ", the app refuses the overlapping request.");
         assertTrue(adminLeaves.hasRequestWithStatus(TARGET_EMPLOYEE, LeaveStatus.APPROVED,
                         dayMonth, year),
                 "No Approved request for " + TARGET_EMPLOYEE + " on " + dayMonth + " " + year
                         + " is listed after recording it");
-        softly().assertTrue(adminLeaves.waitForTabCount(LeaveStatus.APPROVED, approvedBefore + 1),
-                "The Approved tab reported " + adminLeaves.tabCount(LeaveStatus.APPROVED)
-                        + " after recording, expected " + (approvedBefore + 1));
         softly().assertEquals(adminLeaves.tabCount(LeaveStatus.PENDING), pendingBefore,
                 "A request recorded by the Administrator should not enter the pending queue");
 

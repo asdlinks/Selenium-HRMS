@@ -87,6 +87,16 @@ public final class ElementUtils {
         } catch (ElementClickInterceptedException e) {
             // A MUI backdrop, sticky app bar or a toast animating out is sitting
             // over the target. A scripted click bypasses hit-testing entirely.
+            // The daily check-in reminder is the one overlay that stays put, so
+            // close it and retry natively before resorting to a scripted click.
+            if (MuiUtils.dismissCheckInReminderIfShown()) {
+                try {
+                    element.click();
+                    return;
+                } catch (ElementClickInterceptedException stillCovered) {
+                    // fall through to the scripted click
+                }
+            }
             Log.warn("Native click intercepted - falling back to a scripted click");
             clickViaScript(element);
         }
