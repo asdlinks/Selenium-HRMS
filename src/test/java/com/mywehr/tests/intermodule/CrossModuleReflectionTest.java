@@ -166,6 +166,8 @@ public class CrossModuleReflectionTest extends BaseTest {
         note("The Dashboard currently promotes: '" + dashboard.nextHolidayName() + "'");
 
         HolidayCalendarPage holidays = new HolidayCalendarPage();
+        step("Removing holidays left behind by earlier runs");
+        holidays.deleteLeftoverAutomationHolidays(TestDataFactory.AUTOMATION_PREFIX);
         try {
             step("MODULE 1 - adding the holiday '" + holidayName + "' on " + holidayDate);
             holidays.open();

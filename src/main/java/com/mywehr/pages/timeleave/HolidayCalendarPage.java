@@ -85,6 +85,38 @@ public class HolidayCalendarPage extends BasePage {
         return ElementUtils.pageContainsText(name);
     }
 
+    /**
+     * Deletes every holiday an earlier automation run left behind (named
+     * "&lt;prefix&gt; Holiday &lt;digits&gt;"). A leftover dated sooner than a new
+     * holiday keeps the Dashboard's next-holiday widget pointing at itself.
+     */
+    public void deleteLeftoverAutomationHolidays(String prefix) {
+        open();
+        // The cards render after the page shell; reading at once finds none.
+        // With no leftovers this costs the full wait, which is the rare case.
+        if (!ElementUtils.waitForPageText(prefix + " Holiday", Duration.ofSeconds(10))) {
+            return;
+        }
+        @SuppressWarnings("unchecked")
+        java.util.List<String> leftovers = (java.util.List<String>)
+                ((org.openqa.selenium.JavascriptExecutor) driver()).executeScript(
+                """
+                const pattern = new RegExp('^' + arguments[0] + ' Holiday \\\\d+$');
+                const names = [...document.querySelectorAll('main div,main span,main p,main h6')]
+                    .filter(e => e.children.length === 0)
+                    .map(e => (e.textContent || '').trim())
+                    .filter(t => pattern.test(t));
+                return [...new Set(names)];
+                """, prefix);
+        for (String name : leftovers) {
+            Log.info("Removing leftover automation holiday '" + name + "'");
+            if (!deleteIfPresent(name)) {
+                Log.warn("Holiday delete is not working - leaving the remaining leftovers in place");
+                return;
+            }
+        }
+    }
+
     /** Name shown on the "Next Holiday" KPI card. */
     public String nextHolidayName() {
         return contentText().lines()
@@ -163,11 +195,14 @@ public class HolidayCalendarPage extends BasePage {
      * Deleting the wrong holiday during cleanup would be considerably worse
      * than failing to clean up at all.
      */
-    public void deleteIfPresent(String holidayName) {
+    public boolean deleteIfPresent(String holidayName) {
         try {
             open();
-            if (!hasHolidayImmediately(holidayName)) {
-                return;
+            // Waiting, not immediate: the list renders after the page shell,
+            // and an immediate read skipped cleanup and leaked holidays that
+            // then outranked later runs' holidays on the Dashboard widget.
+            if (!hasHoliday(holidayName)) {
+                return true;
             }
 
             Object control = ((org.openqa.selenium.JavascriptExecutor) driver()).executeScript(
@@ -189,16 +224,28 @@ public class HolidayCalendarPage extends BasePage {
 
             if (control == null) {
                 Log.warn("No delete control found for the holiday '" + holidayName + "'");
-                return;
+                return false;
             }
 
             ElementUtils.click((org.openqa.selenium.WebElement) control);
             if (WaitUtils.isVisibleWithin(MuiUtils.DIALOG, Duration.ofSeconds(4))) {
                 MuiUtils.confirmDestructiveAction();
             }
+
+            // Verify rather than assume: on 2026-09-24 the delete control was
+            // observed doing nothing at all (no request, no dialog, no DOM
+            // change), and an unverified "cleaned up" hid the leak for days.
+            open();
+            if (hasHoliday(holidayName)) {
+                Log.warn("The holiday '" + holidayName + "' is still listed after delete - "
+                        + "the application did not remove it");
+                return false;
+            }
             Log.info("Cleaned up holiday '" + holidayName + "'");
+            return true;
         } catch (RuntimeException e) {
             Log.warn("Could not clean up holiday '" + holidayName + "': " + e.getMessage());
+            return false;
         }
     }
 }

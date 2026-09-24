@@ -109,8 +109,11 @@ public final class WaitUtils {
      * Used after triggering a data fetch inside an already-mounted view.
      */
     public static void waitForDataToSettle() {
+        waitForDataToSettle(ConfigManager.getDuration("data.settle.wait"));
+    }
+
+    public static void waitForDataToSettle(Duration timeout) {
         By loaders = By.cssSelector(".MuiSkeleton-root, .MuiCircularProgress-root, .MuiLinearProgress-root");
-        Duration timeout = ConfigManager.getDuration("data.settle.wait");
         try {
             fluently(d -> d.findElements(loaders).stream().noneMatch(WebElement::isDisplayed),
                     timeout, "Loading indicators never cleared");

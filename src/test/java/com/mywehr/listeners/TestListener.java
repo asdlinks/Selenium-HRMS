@@ -1,7 +1,6 @@
 package com.mywehr.listeners;
 
 import com.aventstack.extentreports.ExtentTest;
-import com.aventstack.extentreports.MediaEntityBuilder;
 import com.aventstack.extentreports.Status;
 import com.mywehr.config.ConfigManager;
 import com.mywehr.utils.Log;
@@ -135,16 +134,7 @@ public class TestListener implements ITestListener, ISuiteListener {
     // ------------------------------------------------------------- helpers
 
     private void attachScreenshot(ExtentTest test, Status status, String caption) {
-        String base64 = ScreenshotUtils.captureAsBase64();
-        if (base64 == null) {
-            return;
-        }
-        try {
-            test.log(status, caption,
-                    MediaEntityBuilder.createScreenCaptureFromBase64String(base64).build());
-        } catch (Exception e) {
-            Log.warn("Could not attach the screenshot to the report: " + e.getMessage());
-        }
+        ExtentReportManager.logWithScreenshot(status, caption, "screenshot.settle.millis");
     }
 
     private String durationOf(ITestResult result) {

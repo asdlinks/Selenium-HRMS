@@ -8,6 +8,7 @@ import org.openqa.selenium.TakesScreenshot;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
@@ -34,6 +35,40 @@ public final class ScreenshotUtils {
         } catch (Exception e) {
             Log.warn("Could not capture screenshot: " + e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * Lets the screen finish loading, then writes a PNG to {@code target}.
+     * "Finished loading" means document ready, MUI skeletons/spinners gone
+     * (bounded by {@code settleWait}), then a short pause for MUI fade and
+     * slide transitions. Every wait is non-fatal, so a permanent shimmer costs
+     * a few seconds, not the test.
+     *
+     * Writing to disk rather than returning base64 keeps screenshots out of the
+     * JVM heap - Extent holds every log entry in memory until flush, and a few
+     * hundred embedded PNGs were enough to exhaust the machine.
+     *
+     * @return true if the file was written
+     */
+    public static boolean captureSettledToFile(File target, Duration settleWait) {
+        if (!DriverManager.isInitialised()) {
+            return false;
+        }
+        try {
+            WaitUtils.waitForDocumentReady();
+            WaitUtils.waitForDataToSettle(settleWait);
+            WaitUtils.sleepQuietly(Duration.ofMillis(ConfigManager.getInt("screenshot.animation.millis")));
+        } catch (RuntimeException e) {
+            Log.warn("Screen did not settle before the screenshot: " + e.getMessage());
+        }
+        try {
+            File source = ((TakesScreenshot) DriverManager.get()).getScreenshotAs(OutputType.FILE);
+            FileUtils.copyFile(source, target);
+            return true;
+        } catch (IOException | RuntimeException e) {
+            Log.warn("Could not capture screenshot: " + e.getMessage());
+            return false;
         }
     }
 

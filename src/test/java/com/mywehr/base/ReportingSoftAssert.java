@@ -1,11 +1,9 @@
 package com.mywehr.base;
 
-import com.aventstack.extentreports.ExtentTest;
-import com.aventstack.extentreports.MediaEntityBuilder;
 import com.aventstack.extentreports.Status;
+import com.mywehr.config.ConfigManager;
 import com.mywehr.listeners.ExtentReportManager;
 import com.mywehr.utils.Log;
-import com.mywehr.utils.ScreenshotUtils;
 import org.testng.asserts.IAssert;
 import org.testng.asserts.SoftAssert;
 
@@ -15,7 +13,9 @@ import org.testng.asserts.SoftAssert;
  * TestNG's own SoftAssert stays silent until assertAll(), by which point the
  * screen shows whatever the test did last - not the state that was wrong. This
  * one logs the failure and attaches a screenshot at the point of failure, so
- * every soft failure in a combined test carries its own evidence.
+ * every soft failure in a combined test carries its own evidence. With
+ * screenshot.on.soft.pass enabled, passing checks get a screenshot too, so a
+ * green report still shows what each check saw.
  */
 public class ReportingSoftAssert extends SoftAssert {
 
@@ -23,25 +23,27 @@ public class ReportingSoftAssert extends SoftAssert {
     private boolean asserted;
 
     @Override
+    public void onAssertSuccess(IAssert<?> assertCommand) {
+        if (ConfigManager.getBoolean("screenshot.on.soft.pass")) {
+            ExtentReportManager.logWithScreenshot(Status.PASS,
+                    "Check passed: " + describe(assertCommand), "screenshot.pass.settle.millis");
+        }
+    }
+
+    @Override
     public void onAssertFailure(IAssert<?> assertCommand, AssertionError ex) {
         failureCount++;
         Log.error("SOFT FAILURE: " + ex.getMessage());
+        ExtentReportManager.logWithScreenshot(Status.FAIL,
+                "Check failed: " + ex.getMessage(), "screenshot.settle.millis");
+    }
 
-        ExtentTest test = ExtentReportManager.currentTest();
-        if (test == null) {
-            return;
+    private static String describe(IAssert<?> assertCommand) {
+        String message = assertCommand.getMessage();
+        if (message != null && !message.isBlank()) {
+            return message;
         }
-        String base64 = ScreenshotUtils.captureAsBase64();
-        try {
-            if (base64 != null) {
-                test.log(Status.FAIL, "Check failed: " + ex.getMessage(),
-                        MediaEntityBuilder.createScreenCaptureFromBase64String(base64).build());
-            } else {
-                test.log(Status.FAIL, "Check failed: " + ex.getMessage());
-            }
-        } catch (Exception e) {
-            test.log(Status.FAIL, "Check failed: " + ex.getMessage());
-        }
+        return "expected [" + assertCommand.getExpected() + "], got [" + assertCommand.getActual() + "]";
     }
 
     @Override

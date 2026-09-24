@@ -164,9 +164,11 @@ public class OrganizationConfigurationTest extends BaseTest {
         assertTrue(reports.isLoaded(), "The Reports workspace did not load");
 
         step("Verifying the KPI strip, analytics workspaces and charts");
+        // The KPI strip renders after the page shell, so these checks wait for
+        // it; an immediate read of the first card races the data fetch.
         for (String kpi : List.of("Total Employees", "Present Today", "On Leave",
                 "Pending Approvals", "New Joiners (MTD)")) {
-            softly().assertTrue(reports.displaysTextImmediately(kpi),
+            softly().assertTrue(reports.displaysText(kpi),
                     "The '" + kpi + "' figure is missing from the executive dashboard");
         }
         for (String workspace : List.of("Employees", "Attendance", "Leave", "Payroll",
