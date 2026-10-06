@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    HEALABLE SET - leave flows broken only by one stale locator each (HEALABLE_TC_*_HEALABLE).
+
+    Part of the healing / flaky-detection demo - see FLAKY_HEALING_DEMO.md.
+    RetryListener is deliberately NOT attached, so every failure shows on the
+    first attempt instead of being hidden by a retry.
+
+    Run with:  mvn clean test -Phealable
+-->
+<suite name="MyWe HRMS - Demo - Healable" verbose="1" parallel="false">
+
+    <listeners>
+        <listener class-name="com.mywehr.listeners.TestListener"/>
+    </listeners>
+
+    <test name="Demo - Healable" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.leave.LeaveHealableTest"/>
+        </classes>
+    </test>
+
+</suite>

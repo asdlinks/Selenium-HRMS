@@ -173,6 +173,34 @@
             </properties>
         </profile>
 
+        <profile>
+            <id>flaky</id>
+            <properties>
+                <suite.file>src/test/resources/suites/flaky.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>healable</id>
+            <properties>
+                <suite.file>src/test/resources/suites/healable.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>broken</id>
+            <properties>
+                <suite.file>src/test/resources/suites/broken.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>demo</id>
+            <properties>
+                <suite.file>src/test/resources/suites/demo.xml</suite.file>
+            </properties>
+        </profile>
+
         <!-- ============ EXECUTION MODE PROFILES ============ -->
         <profile>
             <id>ci</id>

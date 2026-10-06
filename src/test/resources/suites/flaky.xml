@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    FLAKY SET - brittle leave flows that pass sometimes (FLAKY_TC_*_FLAKY).
+
+    Part of the healing / flaky-detection demo - see FLAKY_HEALING_DEMO.md.
+    RetryListener is deliberately NOT attached, so every failure shows on the
+    first attempt instead of being hidden by a retry.
+
+    Run with:  mvn clean test -Pflaky
+-->
+<suite name="MyWe HRMS - Demo - Flaky" verbose="1" parallel="false">
+
+    <listeners>
+        <listener class-name="com.mywehr.listeners.TestListener"/>
+    </listeners>
+
+    <test name="Demo - Flaky" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.leave.LeaveFlakyTest"/>
+        </classes>
+    </test>
+
+</suite>

@@ -32,6 +32,11 @@
     </listeners>
 
     <test name="Regression - All Modules">
+        <groups>
+            <run>
+                <exclude name="demo"/>
+            </run>
+        </groups>
         <packages>
             <package name="com.mywehr.tests.*"/>
         </packages>
