@@ -32,6 +32,9 @@ public class LeaveWorkflowTest extends BaseTest {
     /** Seeded employee used as the leave subject. */
     private static final String TARGET_EMPLOYEE = "sales1";
 
+    /** The request TC_LEAVE_02 saved, reused by TC_LEAVE_05 which depends on it. */
+    private LeaveRequestData recordedLeave;
+
     @Test(priority = 1,
             groups = {"smoke", "leave", "critical"},
             dataProvider = "allPersonas",
@@ -139,6 +142,7 @@ public class LeaveWorkflowTest extends BaseTest {
                         dayMonth, year),
                 "No Approved request for " + TARGET_EMPLOYEE + " on " + dayMonth + " " + year
                         + " is listed after recording it");
+        recordedLeave = request;
         softly().assertEquals(adminLeaves.tabCount(LeaveStatus.PENDING), pendingBefore,
                 "A request recorded by the Administrator should not enter the pending queue");
 
@@ -237,5 +241,62 @@ public class LeaveWorkflowTest extends BaseTest {
 
         assertAllSoft();
         verified("Entitlement cards are scoped to the signed-in user");
+    }
+
+    /*
+     * Runs only when TC_LEAVE_02 passed: it reuses the exact day TC_LEAVE_02
+     * recorded for sales1. If that leave was never saved there is nothing to
+     * overlap, so TestNG skips this test instead of running it pointlessly.
+     *
+     * Groups are a subset of TC_LEAVE_02's, so any suite that selects this
+     * test by group also selects the test it depends on.
+     */
+    @Test(priority = 5,
+            groups = {"smoke", "leave", "e2e"},
+            dependsOnMethods = "TC_LEAVE_02_leaveRecordedByAdminIsAutoApprovedAndVisibleToHr",
+            description = "TC_LEAVE_05 - Recording leave for an employee on a day already booked "
+                    + "by TC_LEAVE_02 does not create a second, overlapping record")
+    public void TC_LEAVE_05_overlappingLeaveOnAnAlreadyBookedDayIsNotRecorded() {
+        LeaveRequestData overlap = TestDataFactory.singleDayLeave(TARGET_EMPLOYEE)
+                .setStartDate(recordedLeave.getStartDate())
+                .setEndDate(recordedLeave.getEndDate());
+        LocalDate leaveDay = DateUtils.fromDateInput(overlap.getStartDate());
+        String dayMonth = DateUtils.gridDayMonth(leaveDay);
+        String year = String.valueOf(leaveDay.getYear());
+
+        step("Signing in as the Organization Administrator and opening Leave Management");
+        loginAndOpen(Persona.ADMIN, AppModule.LEAVES);
+
+        LeavesPage leaves = new LeavesPage();
+        // Hard: the overlap only exists if TC_LEAVE_02's record is still there.
+        assertTrue(leaves.hasRequestWithStatus(TARGET_EMPLOYEE, LeaveStatus.APPROVED, dayMonth, year),
+                "The Approved request TC_LEAVE_02 recorded for " + TARGET_EMPLOYEE + " on "
+                        + dayMonth + " " + year + " is no longer listed");
+        int allBefore = leaves.tabCount(LeaveStatus.ALL);
+        int approvedBefore = leaves.tabCount(LeaveStatus.APPROVED);
+        note("Before: " + allBefore + " total, " + approvedBefore + " approved");
+
+        step("Recording a second leave for " + TARGET_EMPLOYEE + " on the same day, "
+                + overlap.getStartDate());
+        ApplyLeaveDrawer drawer = leaves.openApplyLeaveDrawer();
+        drawer.fill(overlap).clickRecordLeave();
+        // The app refuses an overlap without an error message, and the drawer
+        // may or may not close, so it is dismissed if it is still open.
+        if (drawer.remainsOpenAfterSubmit()) {
+            note("The drawer stayed open. Validation messages: " + drawer.validationMessages());
+            drawer.close();
+        }
+
+        // Reopened so the counts are a fresh read rather than the pre-submit render.
+        step("Reloading Leave Management and verifying nothing new was saved");
+        leaves.open();
+        assertEquals(leaves.tabCount(LeaveStatus.ALL), allBefore,
+                "The total request count changed from " + allBefore + " - an overlapping leave for "
+                        + TARGET_EMPLOYEE + " on " + dayMonth + " " + year + " was recorded");
+        softly().assertEquals(leaves.tabCount(LeaveStatus.APPROVED), approvedBefore,
+                "The Approved count changed although the overlapping request should be refused");
+
+        assertAllSoft();
+        verified("A leave overlapping an already booked day is not recorded");
     }
 }

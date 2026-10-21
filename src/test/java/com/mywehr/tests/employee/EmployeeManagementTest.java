@@ -223,4 +223,59 @@ public class EmployeeManagementTest extends BaseTest {
             departments.deleteIfPresent(departmentName);
         }
     }
+
+    /*
+     * Runs only when TC_EMP_04 passed. This test creates a department as its
+     * setup and deletes it as its cleanup, so if create or delete is broken it
+     * would fail for the wrong reason and leak data - TestNG skips it instead.
+     *
+     * Groups match TC_EMP_04's, so any suite that selects this test by group
+     * also selects the test it depends on.
+     */
+    @Test(priority = 5,
+            groups = {"smoke", "employee", "e2e"},
+            dependsOnMethods = "TC_EMP_04_departmentCanBeCreatedAndDeletedWithCountTracking",
+            description = "TC_EMP_05 - A second department with a name already in use is "
+                    + "rejected and the department count does not change")
+    public void TC_EMP_05_duplicateDepartmentNameIsRejected() {
+        String departmentName = TestDataFactory.uniqueDepartmentName();
+
+        step("Signing in as the Organization Administrator and opening Department Management");
+        loginAndOpen(Persona.ADMIN, AppModule.DEPARTMENT);
+
+        DepartmentPage departments = new DepartmentPage();
+        assertTrue(departments.isLoaded(), "Department Management did not load");
+
+        try {
+            step("Creating the department '" + departmentName + "'");
+            departments.createDepartment(departmentName);
+            assertTrue(departments.hasDepartment(departmentName),
+                    "The setup department '" + departmentName + "' is not listed");
+            int countAfterFirst = departments.departmentCount();
+            note("Departments after the first create: " + countAfterFirst);
+
+            step("Creating a second department with the same name");
+            departments.openCreateDialog().enterDepartmentName(departmentName);
+            boolean accepted = departments.submitCreateDialogQuietly();
+            if (!accepted) {
+                note("The dialog stayed open: " + departments.createDialogText().replace("\n", " / "));
+                departments.cancelCreateDialog();
+            }
+
+            step("Reloading Department Management and verifying no duplicate was saved");
+            departments.open();
+            assertEquals(departments.departmentCount(), countAfterFirst,
+                    "The department count changed from " + countAfterFirst
+                            + " - a duplicate department named '" + departmentName + "' was saved");
+            softly().assertFalse(accepted,
+                    "The create dialog closed for a duplicate name instead of rejecting it");
+
+            assertAllSoft();
+            verified("A duplicate department name is rejected");
+        } finally {
+            // Deleted twice in case the duplicate was wrongly saved.
+            departments.deleteIfPresent(departmentName);
+            departments.deleteIfPresent(departmentName);
+        }
+    }
 }

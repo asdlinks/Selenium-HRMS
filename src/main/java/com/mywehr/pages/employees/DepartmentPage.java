@@ -90,6 +90,22 @@ public class DepartmentPage extends BasePage {
         return this;
     }
 
+    /**
+     * Submits the create dialog without failing when the app refuses it.
+     *
+     * @return true when the dialog closed (the department was accepted),
+     *         false when it stayed open (the submission was rejected)
+     */
+    public boolean submitCreateDialogQuietly() {
+        boolean closed = MuiUtils.clickDialogButtonAndWaitForClose(CREATE_BUTTON);
+        WaitUtils.waitForDataToSettle();
+        return closed;
+    }
+
+    public String createDialogText() {
+        return MuiUtils.dialogText();
+    }
+
     /** Full create flow: open, name, save, wait for the row to appear. */
     public DepartmentPage createDepartment(String name) {
         Log.step("Creating department '" + name + "'");
