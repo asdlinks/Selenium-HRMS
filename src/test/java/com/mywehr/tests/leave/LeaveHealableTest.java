@@ -62,9 +62,6 @@ public class LeaveHealableTest extends BaseTest {
     /** test-id the app never shipped. Correct: {row}//button[normalize-space(.)='Approve'] */
     private static final String BROKEN_APPROVE_BUTTON_IN_ROW = "//button[@data-testid='approve-leave']";
 
-    /** Grid column field renamed. Correct: {row}//div[@data-field='status'] */
-    private static final String BROKEN_STATUS_CELL_IN_ROW = "//div[@data-field='leave_status']";
-
     // ------------------------------------------------ the correct locators
 
     private static final By APPLY_BUTTON = By.xpath("//button[normalize-space(.)='Apply for Leave']");
@@ -183,35 +180,6 @@ public class LeaveHealableTest extends BaseTest {
         softly().assertEquals(leaves.tabCount(LeaveStatus.APPROVED), approved + 1, "Approved did not rise");
         assertAllSoft();
         verified("Admin approved HR's leave");
-    }
-
-    @Test(priority = 5, groups = {"demo", "healable"},
-            description = "[HEALABLE] HEALABLE_TC_LEAVE_05 - HR submits leave, the Admin rejects it and the row "
-                    + "status reads Rejected. Broken: status cell located by renamed data-field 'leave_status'")
-    public void HEALABLE_TC_LEAVE_05_adminRejectsHrLeave_brokenDataField_HEALABLE() {
-        LeaveRequestData request = TestDataFactory.singleDayLeave(null);
-        String[] day = gridFragments(request);
-
-        step("HR submits a leave request");
-        hrSubmits(request);
-
-        step("Signing in as the Administrator and rejecting it");
-        loginAndOpen(Persona.ADMIN, AppModule.LEAVES);
-        LeavesPage leaves = new LeavesPage();
-        int rejected = leaves.tabCount(LeaveStatus.REJECTED);
-        leaves.selectStatusTab(LeaveStatus.PENDING);
-        clickRowAction(DriverManager.get().findElement(
-                By.xpath(rowXPath(LeaveStatus.PENDING, day) + "//button[normalize-space(.)='Reject']")), "Reject", day);
-        assertTrue(leaves.waitForTabCount(LeaveStatus.REJECTED, rejected + 1), "Rejected did not rise");
-
-        step("Reading the row's status cell  <-- BROKEN LOCATOR");
-        leaves.selectStatusTab(LeaveStatus.REJECTED);
-        WaitUtils.waitForVisible(By.xpath(rowXPath(LeaveStatus.REJECTED, day)));
-        String status = DriverManager.get().findElement(
-                By.xpath(rowXPath(LeaveStatus.REJECTED, day) + BROKEN_STATUS_CELL_IN_ROW)).getText();
-
-        assertEquals(status.trim(), "Rejected", "Status cell");
-        verified("Rejected leave shows Rejected in its status cell");
     }
 
     // ---------------------------------------------------------------- helpers

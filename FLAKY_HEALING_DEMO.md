@@ -53,7 +53,7 @@ pass more often, lengthen the `wt(...)` sleeps.
 ## HEALABLE set: `LeaveHealableTest`
 
 Each test is a real end-to-end flow, written properly. It fails only because of
-one `BROKEN_*` locator, marked `<-- BROKEN LOCATOR` in the step log. All five
+one `BROKEN_*` locator, marked `<-- BROKEN LOCATOR` in the step log. All four
 were run green with the correct locators before the broken ones were put back.
 
 | Test | Flow | Broken locator | Correct locator |
@@ -62,7 +62,6 @@ were run green with the correct locators before the broken ones were put back.
 | `HEALABLE_TC_LEAVE_02_hrSubmitsForApproval_brokenAttribute_HEALABLE` | HR submits own leave → Pending +1 | `//textarea[@name='leaveReason']` (attribute never existed) | `//textarea[contains(@placeholder,'reason for leave')]` |
 | `HEALABLE_TC_LEAVE_03_approvedCountRises_brokenClassName_HEALABLE` | Admin records → Approved chip +1 | `//span[contains(@class,'MuiChip-lable')][starts-with(normalize-space(.),'Approved (')]` (class typo) | `…[contains(@class,'MuiChip-label')]…` |
 | `HEALABLE_TC_LEAVE_04_adminApprovesHrLeave_brokenTestId_HEALABLE` | HR submits → Admin approves that row | `{row}//button[@data-testid='approve-leave']` (test-id not rendered) | `{row}//button[normalize-space(.)='Approve']` |
-| `HEALABLE_TC_LEAVE_05_adminRejectsHrLeave_brokenDataField_HEALABLE` | HR submits → Admin rejects → status cell says Rejected | `{row}//div[@data-field='leave_status']` (column renamed) | `{row}//div[@data-field='status']` |
 
 `{row}` is the grid row matching the request's status and date.
 
