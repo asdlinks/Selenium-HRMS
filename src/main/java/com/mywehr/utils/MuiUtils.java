@@ -281,6 +281,24 @@ public final class MuiUtils {
         }
     }
 
+    /**
+     * Opens a dropdown and reads its options, leaving it OPEN so the caller
+     * can choose with {@link #chooseOpenOptionContaining(String)}.
+     *
+     * For dropdowns inside a drawer: closing a menu sends Escape, which closes
+     * the drawer as well, so read-then-close-then-reopen loses the form.
+     */
+    public static List<String> openAndReadOptions(By comboboxLocator) {
+        openDropdown(comboboxLocator);
+        return availableOptions();
+    }
+
+    /** Picks the first option containing the fragment from an already open menu. */
+    public static void chooseOpenOptionContaining(String fragment) {
+        chooseOption(By.xpath("(//*[@role='option'][contains(normalize-space(.),"
+                + escapeForXPath(fragment) + ")])[1]"), fragment);
+    }
+
     /** Opens a dropdown, reads its options, closes it again. */
     public static List<String> readOptions(By comboboxLocator) {
         openDropdown(comboboxLocator);
@@ -379,9 +397,13 @@ public final class MuiUtils {
                     "No autocomplete option matched '" + query + "'. Offered: " + available, e);
         }
 
+        // An option that IS the query wins over one that merely contains it:
+        // searching "hr" also lists anyone whose name contains "hr".
+        By exactMatch = By.xpath("(//*[@role='option'][normalize-space(.)=" + escapeForXPath(query)
+                + " or .//*[normalize-space(text())=" + escapeForXPath(query) + "]])[1]");
         By firstMatch = By.xpath("(//*[@role='option'][contains(normalize-space(.),"
                 + escapeForXPath(query) + ")])[1]");
-        chooseOption(firstMatch, query);
+        chooseOption(ElementUtils.isPresent(exactMatch) ? exactMatch : firstMatch, query);
     }
 
     // -------------------------------------------------------- dialog handling

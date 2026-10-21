@@ -4,17 +4,26 @@ import com.mywehr.base.BaseTest;
 import com.mywehr.data.TestDataFactory;
 import com.mywehr.data.model.LeaveRequestData;
 import com.mywehr.dataproviders.TestDataProviders;
+import com.mywehr.driver.DriverFactory;
+import com.mywehr.driver.DriverManager;
 import com.mywehr.enums.AppModule;
 import com.mywehr.enums.LeaveStatus;
 import com.mywehr.enums.LeaveType;
 import com.mywehr.enums.Persona;
+import com.mywehr.pages.base.BasePage;
 import com.mywehr.pages.dashboard.DashboardPage;
 import com.mywehr.pages.timeleave.ApplyLeaveDrawer;
+import com.mywehr.pages.timeleave.LeaveCancellationPage;
 import com.mywehr.pages.timeleave.LeavesPage;
 import com.mywehr.utils.DateUtils;
+import com.mywehr.utils.Log;
+import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -29,8 +38,15 @@ import static org.testng.Assert.assertTrue;
  */
 public class LeaveWorkflowTest extends BaseTest {
 
-    /** Seeded employee used as the leave subject. */
-    private static final String TARGET_EMPLOYEE = "sales1";
+    /**
+     * Seeded employee used as the leave subject.
+     *
+     * HR rather than an ordinary employee because only a leave's owner can
+     * cancel it (Leave Cancellation is self-service), and HR is the one subject
+     * the suite can sign in as. That lets {@link #cancelRecordedLeave()} give
+     * the day back after every run, so the balance never runs out.
+     */
+    private static final String TARGET_EMPLOYEE = "hr";
 
     /** The request TC_LEAVE_02 saved, reused by TC_LEAVE_05 which depends on it. */
     private LeaveRequestData recordedLeave;
@@ -121,9 +137,14 @@ public class LeaveWorkflowTest extends BaseTest {
         softly().assertTrue(drawer.allFieldsDisplayed(),
                 "The leave drawer is missing one of its required controls");
 
-        step("Recording a single-day casual leave for " + TARGET_EMPLOYEE + " on "
-                + request.getStartDate());
-        drawer.fill(request).submitExpectingSuccess();
+        drawer.selectTargetEmployee(TARGET_EMPLOYEE);
+        LeaveType leaveType = selectLeaveTypeWithBalance(drawer, request.getLeaveType());
+
+        step("Recording a single-day " + leaveType.gridLabel() + " leave for "
+                + TARGET_EMPLOYEE + " on " + request.getStartDate());
+        // Target and type are already selected, so fill() must not pick them again.
+        drawer.fill(request.setTargetEmployee(null).setLeaveType(null)).submitExpectingSuccess();
+        request.setLeaveType(leaveType);
 
         // Leave an Administrator records for someone else is an HR decision
         // already taken, so the app stores it as Approved rather than queueing it.
@@ -258,6 +279,7 @@ public class LeaveWorkflowTest extends BaseTest {
                     + "by TC_LEAVE_02 does not create a second, overlapping record")
     public void TC_LEAVE_05_overlappingLeaveOnAnAlreadyBookedDayIsNotRecorded() {
         LeaveRequestData overlap = TestDataFactory.singleDayLeave(TARGET_EMPLOYEE)
+                .setLeaveType(recordedLeave.getLeaveType())
                 .setStartDate(recordedLeave.getStartDate())
                 .setEndDate(recordedLeave.getEndDate());
         LocalDate leaveDay = DateUtils.fromDateInput(overlap.getStartDate());
@@ -298,5 +320,76 @@ public class LeaveWorkflowTest extends BaseTest {
 
         assertAllSoft();
         verified("A leave overlapping an already booked day is not recorded");
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    /**
+     * Selects a leave type the target employee still has days of, preferring
+     * the one asked for. Call after the target is selected - the options then
+     * show the target's balance.
+     *
+     * Skips rather than fails when every balance is 0: that is a tenant data
+     * problem, not a defect in the flow under test.
+     */
+    private LeaveType selectLeaveTypeWithBalance(ApplyLeaveDrawer drawer, LeaveType preferred) {
+        List<LeaveType> preference = new ArrayList<>(List.of(LeaveType.values()));
+        preference.remove(preferred);
+        preference.add(0, preferred);
+
+        LeaveType chosen = drawer.selectLeaveTypeWithBalance(preference);
+        if (chosen == null) {
+            throw new SkipException(TARGET_EMPLOYEE + " has no leave days left of any type. Cancel some of "
+                    + TARGET_EMPLOYEE + "'s upcoming leaves on Leave Cancellation, then re-run.");
+        }
+        if (chosen != preferred) {
+            note("No " + preferred.gridLabel() + " days left for " + TARGET_EMPLOYEE + " - recording "
+                    + chosen.gridLabel() + " leave instead");
+        }
+        return chosen;
+    }
+
+    /*
+     * Cleanup: HR cancels the leave TC_LEAVE_02 recorded for it, which gives
+     * the day back. Runs after the whole class because TC_LEAVE_05 still needs
+     * that leave to exist. Never throws: a cleanup failure must not turn a
+     * passing run red, so it only warns.
+     */
+    @AfterClass(alwaysRun = true)
+    public void cancelRecordedLeave() {
+        if (recordedLeave == null) {
+            return;
+        }
+        LocalDate leaveDay = DateUtils.fromDateInput(recordedLeave.getStartDate());
+        String dayMonth = DateUtils.gridDayMonth(leaveDay);
+        String year = String.valueOf(leaveDay.getYear());
+
+        DriverManager.set(DriverFactory.create());
+        try {
+            loginAndOpen(Persona.HR, AppModule.LEAVE_CANCELLATION);
+            LeaveCancellationPage cancellation = new LeaveCancellationPage();
+            String cancelled = cancellation.cancelLeaveMatching(
+                    "Automated cleanup of TC_LEAVE_02", dayMonth, year);
+
+            if (!cancellation.noLongerCancellable(dayMonth, year)) {
+                Log.warn("Cleanup: '" + cancelled + "' is still listed as cancellable after cancelling it");
+                return;
+            }
+            // Checked on the row, not the balance card: the card does not count
+            // leave dated in a later year, which is where these dates usually fall.
+            BasePage.navigateTo(AppModule.LEAVES);
+            if (new LeavesPage().hasRequestWithStatus(TARGET_EMPLOYEE, LeaveStatus.CANCELLED, dayMonth, year)) {
+                Log.info("Cleanup: cancelled '" + cancelled + "' - its row now shows Cancelled");
+            } else {
+                Log.warn("Cleanup: cancelled '" + cancelled + "' but its row does not show Cancelled");
+            }
+            recordedLeave = null;
+        } catch (RuntimeException e) {
+            Log.warn("Cleanup: could not cancel the leave recorded for " + TARGET_EMPLOYEE + " on "
+                    + dayMonth + " " + year + " - cancel it by hand on Leave Cancellation. "
+                    + e.getMessage());
+        } finally {
+            DriverManager.quit();
+        }
     }
 }

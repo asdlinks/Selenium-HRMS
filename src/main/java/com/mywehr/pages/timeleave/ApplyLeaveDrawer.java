@@ -85,6 +85,38 @@ public class ApplyLeaveDrawer {
         return this;
     }
 
+    /**
+     * Selects the first leave type, in preference order, that still has days
+     * left. The days come from the options - "Casual Leave (8 left)" - and once
+     * a Target Employee is selected they are THAT employee's balance, not the
+     * signed-in user's, so call this after selecting one.
+     *
+     * Reads and chooses in one opening of the menu: closing it sends Escape,
+     * which would close this drawer too.
+     *
+     * @return the type selected, or null when every type has 0 days left
+     *         (the drawer is then closed)
+     */
+    public LeaveType selectLeaveTypeWithBalance(List<LeaveType> preference) {
+        List<String> options = MuiUtils.openAndReadOptions(LEAVE_TYPE_SELECT);
+        for (LeaveType type : preference) {
+            int left = options.stream()
+                    .filter(option -> option.startsWith(type.optionLabel()))
+                    .map(option -> option.replaceAll("(?s).*\\((\\d+) left\\).*", "$1"))
+                    .filter(count -> count.matches("\\d+"))
+                    .map(Integer::parseInt)
+                    .findFirst()
+                    .orElse(-1);
+            Log.info(type.gridLabel() + " days left for the target employee: " + left);
+            if (left > 0) {
+                MuiUtils.chooseOpenOptionContaining(type.optionLabel());
+                return type;
+            }
+        }
+        MuiUtils.closeDropdown();
+        return null;
+    }
+
     public ApplyLeaveDrawer chooseFullDay() {
         ElementUtils.click(FULL_DAY_TOGGLE);
         return this;
