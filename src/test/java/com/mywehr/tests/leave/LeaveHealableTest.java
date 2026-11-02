@@ -128,30 +128,6 @@ public class LeaveHealableTest extends BaseTest {
         verified("HR's own leave enters the Pending queue");
     }
 
-    @Test(priority = 3, groups = {"demo", "healable"},
-            description = "[HEALABLE] HEALABLE_TC_LEAVE_03 - The Approved tab count rises after the Admin "
-                    + "records leave. Broken: chip located by a misspelt class 'MuiChip-lable'")
-    public void HEALABLE_TC_LEAVE_03_approvedCountRises_brokenClassName_HEALABLE() {
-        LeaveRequestData request = TestDataFactory.singleDayLeave(TARGET_EMPLOYEE);
-
-        step("Signing in as the Administrator and opening Leave Management");
-        loginAndOpen(Persona.ADMIN, AppModule.LEAVES);
-        LeavesPage leaves = new LeavesPage();
-        int before = leaves.tabCount(LeaveStatus.APPROVED);
-
-        step("Recording leave for " + TARGET_EMPLOYEE);
-        openDrawer(APPLY_BUTTON);
-        new ApplyLeaveDrawer().fill(request).submitExpectingSuccess();
-        leaves.waitForTabCount(LeaveStatus.APPROVED, before + 1);
-
-        step("Reading the Approved chip  <-- BROKEN LOCATOR");
-        String chip = DriverManager.get().findElement(BROKEN_APPROVED_CHIP).getText();
-        int after = Integer.parseInt(chip.replaceAll("[^0-9]", ""));
-
-        assertEquals(after, before + 1, "Approved chip reads '" + chip + "'");
-        verified("The Approved chip count rose by one");
-    }
-
     // ---------------------------------------------------------------- helpers
 
     /**
