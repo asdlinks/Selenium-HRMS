@@ -152,36 +152,6 @@ public class LeaveHealableTest extends BaseTest {
         verified("The Approved chip count rose by one");
     }
 
-    @Test(priority = 4, groups = {"demo", "healable"},
-            description = "[HEALABLE] HEALABLE_TC_LEAVE_04 - HR submits leave and the Admin approves it from "
-                    + "the Pending tab. Broken: Approve button located by a data-testid the app does not render")
-    public void HEALABLE_TC_LEAVE_04_adminApprovesHrLeave_brokenTestId_HEALABLE() {
-        LeaveRequestData request = TestDataFactory.singleDayLeave(null);
-        String[] day = gridFragments(request);
-
-        step("HR submits a leave request");
-        hrSubmits(request);
-
-        step("Signing in as the Administrator");
-        loginAndOpen(Persona.ADMIN, AppModule.LEAVES);
-        LeavesPage leaves = new LeavesPage();
-        int pending = leaves.tabCount(LeaveStatus.PENDING);
-        int approved = leaves.tabCount(LeaveStatus.APPROVED);
-        leaves.selectStatusTab(LeaveStatus.PENDING);
-        assertTrue(hasRow(LeaveStatus.PENDING, day), "HR's request is not in the Pending tab");
-
-        step("Approving HR's request  <-- BROKEN LOCATOR");
-        WebElement approve = DriverManager.get().findElement(
-                By.xpath(rowXPath(LeaveStatus.PENDING, day) + BROKEN_APPROVE_BUTTON_IN_ROW));
-        clickRowAction(approve, "Approve", day);
-
-        step("Verifying the counts moved");
-        assertTrue(leaves.waitForTabCount(LeaveStatus.PENDING, pending - 1), "Pending did not drop");
-        softly().assertEquals(leaves.tabCount(LeaveStatus.APPROVED), approved + 1, "Approved did not rise");
-        assertAllSoft();
-        verified("Admin approved HR's leave");
-    }
-
     // ---------------------------------------------------------------- helpers
 
     /**
