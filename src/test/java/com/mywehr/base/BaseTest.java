@@ -178,6 +178,19 @@ public abstract class BaseTest {
         }
     }
 
+    /**
+     * Records a known problem that should be visible but must not fail the
+     * test - e.g. an app defect with a workaround in place. Shown as a
+     * WARNING entry in the report; the test can still pass.
+     */
+    protected void warn(String description) {
+        Log.warn(description);
+        ExtentTest test = ExtentReportManager.currentTest();
+        if (test != null) {
+            test.warning(description);
+        }
+    }
+
     /** Records context that is neither a step nor an assertion. */
     protected void note(String description) {
         Log.info(description);

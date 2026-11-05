@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mywehr.data.model.Credential;
 import com.mywehr.data.model.EmployeeData;
+import com.mywehr.data.model.OnboardingEmployee;
 import com.mywehr.exceptions.FrameworkException;
 import com.mywehr.utils.Log;
 
@@ -101,5 +102,17 @@ public final class JsonDataReader {
 
     public static List<EmployeeData> employeeValidationScenarios() {
         return readList("employee-validation.json", EmployeeData.class);
+    }
+
+    /** The fixed, fully detailed employee used by the onboarding test. */
+    public static OnboardingEmployee onboardingEmployee() {
+        return (OnboardingEmployee) CACHE.computeIfAbsent("employee-onboarding.json#single", key -> {
+            try (InputStream stream = open("employee-onboarding.json")) {
+                return MAPPER.readValue(stream, OnboardingEmployee.class);
+            } catch (IOException e) {
+                throw new FrameworkException(
+                        "Unable to parse test data file: employee-onboarding.json", e);
+            }
+        });
     }
 }

@@ -66,6 +66,15 @@ public final class WaitUtils {
                 .until(condition);
     }
 
+    /** {@link #fluently} for a yes/no question: false on timeout instead of throwing. */
+    public static boolean fluentlyQuietly(Function<WebDriver, Boolean> condition, Duration timeout) {
+        try {
+            return Boolean.TRUE.equals(fluently(condition, timeout, "condition"));
+        } catch (org.openqa.selenium.TimeoutException e) {
+            return false;
+        }
+    }
+
     // ----------------------------------------------------------- app readiness
 
     /**

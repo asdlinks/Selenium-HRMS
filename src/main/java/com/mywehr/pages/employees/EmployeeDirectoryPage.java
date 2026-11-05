@@ -87,6 +87,146 @@ public class EmployeeDirectoryPage extends BasePage {
         return new RegisterEmployeeDialog();
     }
 
+    /** Add New Employee now opens the six-step Employee Onboarding wizard. */
+    public EmployeeOnboardingWizard openOnboardingWizard() {
+        Log.step("Opening the Employee Onboarding wizard");
+        MuiUtils.openDialogFrom(ADD_EMPLOYEE_BUTTON);
+        return new EmployeeOnboardingWizard();
+    }
+
+    // ------------------------------------------------- per-employee actions
+
+    /**
+     * The row action (View Profile / Edit / Reset Password / Delete) on ONE
+     * employee's card in the org tree, or null when no card shows that name.
+     *
+     * The tree nests cards (a manager's card contains their reports), so the
+     * card is the smallest ancestor of an action button that holds exactly
+     * one button of that kind AND an element whose own text is the name. The
+     * name is matched exactly: "Priya Nair" must never resolve to
+     * "Priya Nair Jr".
+     */
+    private org.openqa.selenium.WebElement cardAction(String fullName, String action) {
+        return (org.openqa.selenium.WebElement) ((org.openqa.selenium.JavascriptExecutor)
+                com.mywehr.driver.DriverManager.get()).executeScript(
+                """
+                const name = arguments[0], action = arguments[1];
+                const selector = '[aria-label="' + action + '"], [title="' + action + '"]';
+                for (const button of document.querySelectorAll(selector)) {
+                    let card = button.parentElement;
+                    while (card && card !== document.body
+                            && card.querySelectorAll(selector).length === 1) {
+                        const named = [...card.querySelectorAll('*')].some(e =>
+                            e.children.length === 0 && e.textContent.trim() === name);
+                        if (named) return button;
+                        card = card.parentElement;
+                    }
+                }
+                return null;
+                """, fullName, action);
+    }
+
+    /** Narrows the directory to the name and reports whether its card is shown. */
+    public boolean hasEmployeeNamed(String fullName) {
+        searchByName(fullName);
+        boolean found = WaitUtils.fluentlyQuietly(d -> cardAction(fullName, "Edit") != null,
+                Duration.ofSeconds(10));
+        clearNameSearch();
+        return found;
+    }
+
+    public EditEmployeeDialog openEditFor(String fullName) {
+        Log.step("Opening Edit for '" + fullName + "'");
+        searchByName(fullName);
+        org.openqa.selenium.WebElement edit = requireCardAction(fullName, "Edit");
+        ElementUtils.clickViaScript(edit);
+        MuiUtils.waitForDialog();
+        WaitUtils.waitForDataToSettle();
+        return new EditEmployeeDialog();
+    }
+
+    /** Opens the employee's profile page and returns its visible text. */
+    public String openProfileOf(String fullName) {
+        Log.step("Opening the profile of '" + fullName + "'");
+        searchByName(fullName);
+        ElementUtils.clickViaScript(requireCardAction(fullName, "View Profile"));
+        WaitUtils.waitForUrlContains("/profile/");
+        ElementUtils.waitForPageText("Employee Profile", Duration.ofSeconds(15));
+        WaitUtils.waitForDataToSettle();
+        return ElementUtils.mainContentText();
+    }
+
+    /**
+     * Deletes the employee through their card's Delete action and its
+     * "Remove this employee?" confirmation.
+     *
+     * Note what the app means by delete: the person loses login access and
+     * leaves the directory, attendance, leave and payroll, but their history
+     * and records are KEPT (undoable only via the vendor's support).
+     *
+     * @return the confirmation dialog's text, for the report
+     */
+    public String deleteEmployee(String fullName) {
+        Log.step("Deleting the employee '" + fullName + "'");
+        searchByName(fullName);
+        ElementUtils.clickViaScript(requireCardAction(fullName, "Delete"));
+        MuiUtils.waitForDialog();
+        String confirmation = MuiUtils.dialogText();
+
+        org.openqa.selenium.WebElement dialog =
+                ElementUtils.find(MuiUtils.DIALOG, com.mywehr.enums.WaitStrategy.VISIBLE);
+        org.openqa.selenium.WebElement confirm = dialog.findElements(By.xpath(".//button")).stream()
+                .filter(b -> {
+                    // The app captions it "Remove Employee"; the others are kept
+                    // for wording changes, never "Cancel".
+                    String text = b.getText().trim().toLowerCase();
+                    return text.startsWith("remove") || text.contains("delete")
+                            || text.equals("confirm") || text.startsWith("yes");
+                })
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new com.mywehr.exceptions.FrameworkException(
+                        "The delete confirmation has no confirm button. It read: " + confirmation));
+        ElementUtils.clickViaScript(confirm);
+        if (!WaitUtils.waitForInvisibleQuietly(MuiUtils.DIALOG, Duration.ofSeconds(15))) {
+            throw new com.mywehr.exceptions.FrameworkException(
+                    "The delete confirmation did not close. It read: " + MuiUtils.dialogText());
+        }
+        WaitUtils.waitForDataToSettle();
+        clearNameSearch();
+        return confirmation;
+    }
+
+    /**
+     * Removes the employee if a card for them exists. Cleanup only: safe to
+     * call whether or not the record was ever created.
+     *
+     * @return true when a record was found and deleted
+     */
+    public boolean deleteEmployeeIfPresent(String fullName) {
+        MuiUtils.dismissOverlays();
+        if (!hasEmployeeNamed(fullName)) {
+            return false;
+        }
+        deleteEmployee(fullName);
+        boolean gone = !hasEmployeeNamed(fullName);
+        if (gone) {
+            Log.warn("Cleaned up the employee '" + fullName + "'");
+        } else {
+            Log.warn("Tried to delete '" + fullName + "' but the card is still listed");
+        }
+        return gone;
+    }
+
+    private org.openqa.selenium.WebElement requireCardAction(String fullName, String action) {
+        try {
+            return WaitUtils.fluently(d -> cardAction(fullName, action), Duration.ofSeconds(12),
+                    "No '" + action + "' action on a card for '" + fullName + "'");
+        } catch (org.openqa.selenium.TimeoutException e) {
+            throw new com.mywehr.exceptions.FrameworkException(
+                    "No card with a '" + action + "' action for '" + fullName + "'", e);
+        }
+    }
+
     // ------------------------------------------------- subscription capacity
 
     /** Banner the app shows when the tenant's plan seat limit is reached. */
@@ -94,6 +234,10 @@ public class EmployeeDirectoryPage extends BasePage {
     // itself rather than every ancestor, whatever component renders it.
     private static final By PLAN_LIMIT_BANNER =
             By.xpath("//*[contains(text(),'employee limit')]");
+
+    /** The "(used/limit)" figures inside the plan banner. */
+    private static final java.util.regex.Pattern SEAT_USAGE =
+            java.util.regex.Pattern.compile("\\((\\d+)\\s*/\\s*(\\d+)\\)");
 
     /**
      * True when the tenant cannot take another employee.
@@ -104,14 +248,26 @@ public class EmployeeDirectoryPage extends BasePage {
      * indistinguishable from a broken form: the dialog closes, nothing is
      * created, and the test reports "the employee is not listed". Detecting
      * the cap lets the suite say what is actually wrong.
+     *
+     * The banner appears BEFORE the cap too - "Approaching your subscription
+     * plan's employee limit (9/10)" - so its presence alone is not the answer;
+     * the used/limit figures are. Only a banner without figures falls back to
+     * being treated as the cap.
      */
     public boolean isAtEmployeeLimit() {
-        return ElementUtils.isPresent(PLAN_LIMIT_BANNER);
+        if (!ElementUtils.isPresent(PLAN_LIMIT_BANNER)) {
+            return false;
+        }
+        java.util.regex.Matcher usage = SEAT_USAGE.matcher(employeeLimitMessage());
+        if (usage.find()) {
+            return Integer.parseInt(usage.group(1)) >= Integer.parseInt(usage.group(2));
+        }
+        return true;
     }
 
     /** The plan-limit message, or empty when the tenant still has capacity. */
     public String employeeLimitMessage() {
-        return isAtEmployeeLimit()
+        return ElementUtils.isPresent(PLAN_LIMIT_BANNER)
                 ? ElementUtils.find(PLAN_LIMIT_BANNER,
                         com.mywehr.enums.WaitStrategy.PRESENT).getText().trim()
                 : "";

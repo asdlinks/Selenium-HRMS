@@ -268,8 +268,20 @@ public final class MuiUtils {
         if (WaitUtils.isVisibleWithin(LISTBOX, Duration.ofSeconds(3))) {
             Log.warn("The menu stayed open after choosing '" + description
                     + "' - replaying the full pointer sequence");
-            if (ElementUtils.isPresent(option)) {
-                ElementUtils.clickViaScript(option);
+            // Resolved without waiting: if the option is already gone, the
+            // menu is closing and there is nothing to retry. A waiting lookup
+            // here would block for the full timeout on a menu that closed.
+            try {
+                List<WebElement> stillThere = DriverManager.get().findElements(option);
+                if (!stillThere.isEmpty()) {
+                    ElementUtils.clickViaScript(stillThere.get(0));
+                }
+            } catch (org.openqa.selenium.StaleElementReferenceException e) {
+                // The option was detached between the lookup and the click:
+                // the menu was already closing from the first click. Whether
+                // it really closed is decided by the check below.
+                Log.warn("The option for '" + description + "' went stale during the retry - "
+                        + "the menu was already closing");
             }
         }
         if (!WaitUtils.waitForInvisibleQuietly(LISTBOX, Duration.ofSeconds(10))) {
