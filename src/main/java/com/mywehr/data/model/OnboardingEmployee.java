@@ -58,14 +58,14 @@ public record OnboardingEmployee(
                 b.designation(), b.employeeId() + "-" + stamp, b.employmentType(),
                 b.probationMonths(), b.joiningDate(), b.reportingManager(),
                 b.attendancePolicy(), b.shift());
+        // Identity and bank are optional - the quick-onboarding person has neither.
         IdentityDetails id = identityDetails;
-        IdentityDetails stampedId = new IdentityDetails(
+        IdentityDetails stampedId = id == null ? null : new IdentityDetails(
                 id.aadhaarNumber().substring(0, 2) + stamp,
                 id.passportNumber().charAt(0) + stamp.substring(3));
         BankDetails bank = bankDetails;
-        String pan = bank.panNumber();
-        BankDetails stampedBank = new BankDetails(
-                pan.substring(0, 5) + stamp.substring(6) + pan.charAt(9),
+        BankDetails stampedBank = bank == null ? null : new BankDetails(
+                bank.panNumber().substring(0, 5) + stamp.substring(6) + bank.panNumber().charAt(9),
                 bank.accountHolderName(), bank.bankName(), bank.accountNumber(),
                 bank.branch(), bank.ifscCode());
         return new OnboardingEmployee(stamped, contactDetails, stampedId, stampedBank,

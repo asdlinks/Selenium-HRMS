@@ -106,12 +106,20 @@ public final class JsonDataReader {
 
     /** The fixed, fully detailed employee used by the onboarding test. */
     public static OnboardingEmployee onboardingEmployee() {
-        return (OnboardingEmployee) CACHE.computeIfAbsent("employee-onboarding.json#single", key -> {
-            try (InputStream stream = open("employee-onboarding.json")) {
+        return onboardingEmployeeFrom("employee-onboarding.json");
+    }
+
+    /** The fixed employee with only basic and contact details, for the quick onboarding test. */
+    public static OnboardingEmployee quickOnboardingEmployee() {
+        return onboardingEmployeeFrom("employee-onboarding-quick.json");
+    }
+
+    private static OnboardingEmployee onboardingEmployeeFrom(String file) {
+        return (OnboardingEmployee) CACHE.computeIfAbsent(file + "#single", key -> {
+            try (InputStream stream = open(file)) {
                 return MAPPER.readValue(stream, OnboardingEmployee.class);
             } catch (IOException e) {
-                throw new FrameworkException(
-                        "Unable to parse test data file: employee-onboarding.json", e);
+                throw new FrameworkException("Unable to parse test data file: " + file, e);
             }
         });
     }

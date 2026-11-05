@@ -488,16 +488,131 @@ public class EmployeeManagementTest extends BaseTest {
             verified("'" + name + "' was onboarded with complete details, every value was "
                     + "stored and shown back, and the record was deleted");
         } finally {
-            // Guarantees the tenant is left clean even if an assertion above
-            // failed. A cleanup error is logged, never thrown: thrown from a
-            // finally block it would replace the failure that actually matters.
-            try {
-                MuiUtils.dismissOverlays();
-                BasePage.navigateTo(AppModule.EMPLOYEE_DIRECTORY);
-                new EmployeeDirectoryPage().deleteEmployeeIfPresent(name);
-            } catch (RuntimeException cleanupError) {
-                note("CLEANUP FAILED - '" + name + "' may still be in the tenant: " + cleanupError);
+            deleteEmployeeQuietly(name);
+        }
+    }
+
+    /*
+     * The short path through the same wizard: a second fixed, realistic person
+     * (testdata/employee-onboarding-quick.json) with only Basic Details and
+     * contact/address filled in. Education, Employment History and References
+     * are skipped with Next, which proves those steps are genuinely optional.
+     * The PIN is left out on purpose - the PIN defect is covered by TC_EMP_06.
+     *
+     * Same lifecycle as TC_EMP_06: pre-clean, create, verify, delete, and a
+     * finally-block cleanup; email and Employee ID carry a run stamp.
+     */
+    @Test(priority = 7,
+            groups = {"smoke", "employee", "e2e"},
+            description = "TC_EMP_07 - The Administrator onboards an employee with only basic "
+                    + "and contact details, skipping the optional wizard steps; the employee "
+                    + "is listed with the right details and is then deleted")
+    public void TC_EMP_07_quickOnboardEmployeeWithBasicDetailsAndDelete() {
+        OnboardingEmployee employee = JsonDataReader.quickOnboardingEmployee().withRunStamp(
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMddHHmmss")));
+        OnboardingEmployee.BasicDetails basic = employee.basicDetails();
+        OnboardingEmployee.ContactDetails contact = employee.contactDetails();
+        String name = employee.fullName();
+
+        step("Signing in as the Organization Administrator and opening the directory");
+        loginAndOpen(Persona.ADMIN, AppModule.EMPLOYEE_DIRECTORY);
+        EmployeeDirectoryPage directory = new EmployeeDirectoryPage();
+
+        step("Removing any '" + name + "' left behind by an aborted earlier run");
+        if (directory.deleteEmployeeIfPresent(name)) {
+            note("A leftover '" + name + "' from an earlier run was deleted first");
+        }
+        skipIfTenantAtEmployeeLimit(directory);
+
+        int headcountBefore = directory.totalEmployees();
+        note("Headcount before onboarding: " + headcountBefore);
+        note("Onboarding: " + name + " / " + basic.employeeId() + " / " + basic.email());
+
+        try {
+            EmployeeOnboardingWizard wizard = directory.openOnboardingWizard();
+            assertTrue(wizard.isOpen(), "The Employee Onboarding wizard did not open");
+            assertEquals(wizard.currentStep(), 1, "The wizard did not start on step 1");
+
+            step("Step 1 - Basic Details");
+            wizard.fillBasicDetails(basic).next();
+
+            step("Step 2 - Contact and address only");
+            wizard.fillContactDetails(contact).next();
+
+            step("Steps 3 to 5 - skipping Education, Employment History and References");
+            wizard.next().next().next();
+            assertEquals(wizard.currentStep(), 6, "The wizard did not reach Review & Create");
+
+            step("Step 6 - Reviewing the summary and creating the employee");
+            String review = wizard.text();
+            for (String expected : List.of(name, basic.email(), basic.employeeId(),
+                    basic.department(), basic.designation())) {
+                softly().assertTrue(review.contains(expected),
+                        "The Review step does not show '" + expected + "'");
             }
+            String outcome = wizard.create();
+            note("Create outcome: " + outcome);
+            softly().assertTrue(outcome.isEmpty() || outcome.contains("Created Successfully"),
+                    "The wizard did not confirm the employee was created: " + outcome);
+            softly().assertFalse(outcome.contains("couldn't be saved"),
+                    "Some sections were not saved: " + outcome);
+
+            // Hard: everything below is meaningless if the record does not exist.
+            step("Verifying the employee is listed and the headcount rose by one");
+            assertTrue(directory.hasEmployeeNamed(name),
+                    "'" + name + "' is not listed in the directory after onboarding");
+            softly().assertTrue(directory.waitForKpiCard(
+                            EmployeeDirectoryPage.KPI_TOTAL_EMPLOYEES, headcountBefore + 1),
+                    "The Total Employees KPI reported " + directory.totalEmployees()
+                            + ", expected " + (headcountBefore + 1));
+
+            step("Verifying the stored basic and contact details in the Edit dialog");
+            EditEmployeeDialog edit = directory.openEditFor(name);
+            assertTrue(edit.isOpen(), "The Edit Employee Details dialog did not open");
+            verifyTab(edit, "Basic Details", Map.ofEntries(
+                    Map.entry("Full Name", name),
+                    Map.entry("Email", basic.email()),
+                    Map.entry("Date of Birth", basic.dateOfBirth()),
+                    Map.entry("Gender", basic.gender()),
+                    Map.entry("Department", basic.department()),
+                    Map.entry("Designation", basic.designation()),
+                    Map.entry("Employee ID", basic.employeeId()),
+                    Map.entry("Joining Date", basic.joiningDate()),
+                    Map.entry("Contact Number", contact.contactNumber()),
+                    Map.entry("City", contact.city()),
+                    Map.entry("State", contact.state())));
+            edit.cancel();
+
+            step("Deleting the employee");
+            String confirmation = directory.deleteEmployee(name);
+            note("Delete confirmation: " + confirmation.replace("\n", " / "));
+            assertFalse(directory.hasEmployeeNamed(name),
+                    "'" + name + "' is still listed after being deleted");
+            softly().assertTrue(directory.waitForKpiCard(
+                            EmployeeDirectoryPage.KPI_TOTAL_EMPLOYEES, headcountBefore),
+                    "The Total Employees KPI did not return to " + headcountBefore
+                            + " after the delete; it reads " + directory.totalEmployees());
+
+            assertAllSoft();
+            verified("'" + name + "' was onboarded with basic details, shown back correctly, "
+                    + "and deleted");
+        } finally {
+            deleteEmployeeQuietly(name);
+        }
+    }
+
+    /**
+     * Guarantees the tenant is left clean even if an assertion failed. A
+     * cleanup error is logged, never thrown: thrown from a finally block it
+     * would replace the failure that actually matters.
+     */
+    private void deleteEmployeeQuietly(String name) {
+        try {
+            MuiUtils.dismissOverlays();
+            BasePage.navigateTo(AppModule.EMPLOYEE_DIRECTORY);
+            new EmployeeDirectoryPage().deleteEmployeeIfPresent(name);
+        } catch (RuntimeException cleanupError) {
+            note("CLEANUP FAILED - '" + name + "' may still be in the tenant: " + cleanupError);
         }
     }
 

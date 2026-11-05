@@ -122,7 +122,9 @@ public class EmployeeOnboardingWizard {
         // State before district: the district list is the chosen state's.
         select("State", contact.state());
         MuiUtils.searchAndSelect(MuiUtils.inputByLabelIn(IN, "District"), contact.district());
-        ElementUtils.type(PIN_CODE, contact.pinCode());
+        if (contact.pinCode() != null && !contact.pinCode().isBlank()) {
+            ElementUtils.type(PIN_CODE, contact.pinCode());
+        }
         ElementUtils.type(COUNTRY, contact.country());
         return this;
     }
