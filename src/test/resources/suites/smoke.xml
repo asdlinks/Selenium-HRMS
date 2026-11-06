@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    FULL SUITE - the default target.
+
+    Ordered deliberately: authentication first (nothing else can pass if
+    sign-in is broken), then access control, then the module workflows.
+
+    Run with:  mvn clean test
+-->
+<suite name="MyWe HRMS - POM Reference Suite" verbose="1" parallel="false">
+
+    <listeners>
+        <listener class-name="com.mywehr.listeners.TestListener"/>
+        <listener class-name="com.mywehr.listeners.RetryListener"/>
+    </listeners>
+
+    <test name="01 - Authentication and Session" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.auth.AuthenticationSmokeTest"/>
+        </classes>
+    </test>
+
+    <test name="02 - Role Based Access Control" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.rbac.RoleBasedAccessTest"/>
+        </classes>
+    </test>
+
+    <test name="03 - Employee Management" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.employee.EmployeeManagementTest"/>
+        </classes>
+    </test>
+
+    <test name="04 - Leave Management" preserve-order="true">
+        <classes>
+            <class name="com.mywehr.tests.leave.LeaveWorkflowTest"/>
+        </classes>
+    </test>
+
+</suite>

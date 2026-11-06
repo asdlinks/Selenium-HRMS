@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    RBAC-ONLY SUITE.
+
+    Runs the persona access matrix on its own - the suite to run after any
+    change to roles, permissions or route guards.
+
+    Run with:  mvn clean test -Prbac
+-->
+<suite name="MyWe HRMS - Role Based Access Suite" verbose="1" parallel="false">
+
+    <listeners>
+        <listener class-name="com.mywehr.listeners.TestListener"/>
+        <listener class-name="com.mywehr.listeners.RetryListener"/>
+    </listeners>
+
+    <test name="Role Based Access Control" preserve-order="true">
+        <groups>
+            <run>
+                <include name="rbac"/>
+            </run>
+        </groups>
+        <packages>
+            <package name="com.mywehr.tests.*"/>
+        </packages>
+    </test>
+
+</suite>
